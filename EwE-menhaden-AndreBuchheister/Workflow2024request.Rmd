@@ -1,0 +1,109 @@
+---
+title: "Workflow notes"
+author: "Sarah Gaichas"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preliminary analysis steps
+
+1. What did Sean do? Find old scripts (best guess is `Andre_data_pulls_v2.R` in 2014request folder)
+2. Compare inputs, 2014 `survdat_lw.RData` which did not use current `survdat` package vs today's `survdat_lw.rds` 
+3. If inputs look similar, run old script and see how far we get
+
+## 1. What did Sean do?
+
+<details>
+<summary>Old script (we think, there was also one called `Andre_data_pulls.R` in a different folder)</summary>
+
+```{r, code=readLines(""), eval=FALSE}
+
+```
+
+</details>
+
+## 2. Compare inputs
+
+<details>
+<summary>Read in 2014 and 2024 survdat_lw files.</summary>
+
+```{r}
+
+#Grab survdat.r (object is called survdat.lw)
+load(file.path(here::here('EwE-menhaden-AndreBuchheister/2014request/survdat_lw.RData')))
+
+survdat24 <- readRDS(here::here('EwE-menhaden-AndreBuchheister/survdat_lw.rds'))
+
+survdat.lw24 <- survdat24$survdat
+
+```
+
+</details>
+
+<details>
+<summary>Column names, types, and number of rows, columns in `survdat.lw` from 2014:</summary>
+
+```{r}
+cat("Names\n")
+names(survdat.lw)
+str(survdat.lw)
+cat("N rows, N columns\n")
+dim(survdat.lw)
+```
+
+</details>
+
+<details>
+<summary>Column names, types, and number of rows, columns in `survdat.lw24` from 2024:</summary>
+
+```{r}
+cat("Names\n")
+names(survdat.lw24)
+str(survdat.lw24)
+cat("N rows, N columns\n")
+dim(survdat.lw24)
+
+```
+
+</details>
+
+The 2014 pull has an differently named column, `INDWT` which might be `PREDWT` now, need to check. 
+
+The 2014 pull has an additional column, `SIZECAT` which is definitely used in the script. Need to see how to recreate this.
+
+We don't have the sql code that created the 2014 pull.
+
+<details>
+<summary>Attributes of the 2024 pull here:</summary>
+
+```{r}
+cat("SQL query\n")
+cat(paste(names(survdat24$sql), "\n", unlist(survdat24$sql), collapse = "\n\n"))
+cat("\n\nDate pulled\n")
+cat(survdat24$pullDate)
+cat("\n\nFunction call\n")
+print(survdat24$functionCall)
+```
+
+</details>
+
+Some types are different. If the nums need to change to ints in the script we can do that.
+
+## Run old script
+
+<details>
+<summary>As far as we can...</summary>
+
+```{r}
+
+```
+
+</details>
+
+
+
+# Detailed analysis
