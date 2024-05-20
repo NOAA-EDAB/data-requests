@@ -1,7 +1,7 @@
 Workflow notes
 ================
 Sarah Gaichas
-2024-05-17
+2024-05-20
 
 # Preliminary analysis steps
 
@@ -775,11 +775,14 @@ multi.box[, box.biomass := sum(WGTLEN), by = key(multi.box)]
 multi.box[SIZE == 'SMALL',  SVSPP := SVSPP + 1000L] 
 multi.box[SIZE == 'MEDIUM', SVSPP := SVSPP + 2000L]
 multi.box[SIZE == 'LARGE',  SVSPP := SVSPP + 3000L]
-# These are uncommented in original script, can't see how they could work
+# SKG These are uncommented in original script, can't see how they could work
 # unless ewe.spp was in memory from somewhere else
-#ewe.spp[EWE %like% '\\(S)', SVSPP := SVSPP + 1000L]
-#ewe.spp[EWE %like% '\\(M)', SVSPP := SVSPP + 2000L]
-#ewe.spp[EWE %like% '\\(L)', SVSPP := SVSPP + 3000L]
+# try this, and we need to map to the survey qs as well
+
+ewe.spp <- spp
+ewe.spp[EWE %like% '\\(S)', SVSPP := SVSPP + 1000L]
+ewe.spp[EWE %like% '\\(M)', SVSPP := SVSPP + 2000L]
+ewe.spp[EWE %like% '\\(L)', SVSPP := SVSPP + 3000L]
 
 #Change biomass and drop extra columns to merge back
 multi.box[, BIOMASS := box.biomass]
@@ -799,6 +802,8 @@ includes Fall and Spring q values.
 
 Are we missing an `ewe.spp` object somewhere? Bypassed this but maybe
 important?
+
+I think that may be `andre.spp` so let’s try that.
 
 Now try the calculations.
 
@@ -1030,6 +1035,121 @@ function is looking for.
 
 <details>
 <summary>
+Andy pointed me to the `prestrat` function in the second commit of the
+survdat package:
+</summary>
+
+``` r
+#Prestrat.r v.1.1
+#Prepare data for Stratmean.r
+#6/14
+#V1.1 - Added the ability to use different groups than svspp and biomass
+#SML
+
+prestrat <- function (survdat, areas, strat.col, area.col = 'area', sp.col = 'SVSPP') {
+  #survdat   <- data table created by Survdat.r
+  #areas     <- data table with stratum and areas
+  #strat.col <- column of survdat and areas with the strata names
+  #area.col  <- column of areas with the area of the stratum in square kilometers
+  #sp.col    <- column of survdat with the species codes of interest
+  
+  #-------------------------------------------------------------------------------
+  #Required packages
+  library(data.table)
+  
+  #-------------------------------------------------------------------------------
+  #User created functions
+  #count occurances
+  count<-function(x){
+    num<-rep(1,length(x))
+    out<-sum(num)
+    return(out)
+    }
+    
+  #-------------------------------------------------------------------------------
+  x <- copy(survdat)
+  y <- copy(areas)
+  
+  setnames(x, c(strat.col, sp.col),
+              c('STRAT',   'SP'))
+  setnames(y, c(strat.col, area.col), 
+              c('STRAT', 'S.AREA'))
+              
+  len.var <- c('LENGTH', 'NUMLEN')
+  sta.var <- c('SVVESSEL', 'YEAR', 'SEASON', 'LAT', 'LON', 
+               'DEPTH', 'SURFTEMP', 'SURFSALIN', 'BOTTEMP', 'BOTSALIN')
+  spp.var <- c('SP', 'CATCHSEX', 'ABUNDANCE', 'BIOMASS')
+
+  #Catch data - remove length data
+  setkey(x,
+         CRUISE6,
+         STRAT,
+         STATION,
+         SP,
+         CATCHSEX)
+  
+  catch <- unique(x)
+  catch[, c(len.var, sta.var) := NULL]
+
+  #Merge sexed species
+  setkey(catch,
+         CRUISE6,
+         STRAT,
+         STATION,
+         SP)
+
+  biomass   <- catch[, sum(BIOMASS),      by = key(catch)]
+  abundance <- catch[, sum(ABUNDANCE), by = key(catch)]
+  setnames(biomass,   "V1", "BIOMASS")
+  setnames(abundance, "V1", "ABUNDANCE")
+  catch <- merge(biomass, abundance, by = key(catch))
+               
+  #Station data - remove catch/length
+  setkey(x, CRUISE6, STRAT, STATION)
+  stations <- unique(x)
+  stations[, c(len.var, spp.var) := NULL]
+
+  #count stations
+  setkey(stations, YEAR, STRAT)
+  stations[, ntows := count(STATION), by = key(stations)]
+
+  #Merge stations and area
+  stations <- merge(stations, y, by = 'STRAT')
+
+  #Calculate stratum weight
+  setkey(stations, 'YEAR', 'STRAT')
+  strat.year <- unique(stations)
+  strat.year[, which(!names(strat.year) %in% c('YEAR', 'STRAT', 'S.AREA')) := NULL]
+  strat.year[, W.h := S.AREA / sum(S.AREA, na.rm = T), by = YEAR]
+  strat.year[, S.AREA := NULL]
+  
+  #SG fix duplicate key values?
+  strat.year <- unique(strat.year)
+
+  #Merge back
+  stations <- merge(stations, strat.year, by = key(stations))
+
+  #Merge catch with station data
+  strat.survdat <- merge(stations, catch, by = c('CRUISE6', 'STRAT', 'STATION'))
+  
+  setnames(strat.survdat, c('SP',   'STRAT',   'S.AREA'),
+                          c(sp.col, strat.col, area.col))
+  
+  return(strat.survdat)
+  }
+```
+
+</details>
+
+I don’t think this versiom of `prestrat` is what we want either, back to
+trying the `stratprep` with new names.
+
+This is a bit uncomfortable because it isn’t the same `sweptarea`
+function either. I changed some column names to make this work but
+obviously other things could have been different besides naming.
+
+<details>
+<summary>
 Now try the calculations
 </summary>
 
@@ -1043,10 +1163,17 @@ for(i in 1:length(regions)){
   andre.region[, Region := NULL] #Will get added back in next step
   
   #Run pre stratmean function
-  #andre.pre <- prestrat(andre.region, stratum, strat.col = 'STRATUM', area.col = 'STRATUM_AREA')
+  #SKG cannot work with stratum below; never defined, lets call getarea
+  # but not sum it by Eco?
+  stratum <- getarea(strata, 'STRATA')
+  setnames(stratum, c('STRATA', 'Area'),
+           c('STRATUM', 'STRATUM_AREA'))
   
-  #prestrat does not exist, renamed stratprep?
-  andre.pre <- stratprep(andre.region, strat.area, strat.col = 'STRATUM', area.col = 'STRATUM_AREA')
+  # SKG prestrat in survdat isn't this one
+  #andre.pre <- prestrat(andre.region, stratum, strat.col = 'STRATUM', area.col = 'STRATUM_AREA')
+
+  #prestrat does not exist, renamed stratprep? maybe with stratum defined above?
+  andre.pre <- stratprep(andre.region, stratum, strat.col = 'STRATUM', area.col = 'STRATUM_AREA')
   
   #Reduce number of species
   pre.ewe.box <- merge(andre.pre, ewe.spp, by = 'SVSPP')
@@ -1055,33 +1182,58 @@ for(i in 1:length(regions)){
   ewe.box <- stratmean(pre.ewe.box, group.col = 'SVSPP', strat.col = 'STRATUM')
 
   #Calculate swept area
-  ewe.biomass <- sweptarea(pre.ewe.box, ewe.box, q = ewe.spp[, list(SVSPP, fallq)], 
+  #ewe.biomass <- sweptarea(pre.ewe.box, ewe.box, q = ewe.spp[, list(SVSPP, fallq)], 
+  #                         strat.col = 'STRATUM', area.col = 'STRATUM_AREA', group.col = 'SVSPP')
+  ewe.biomass <- sweptarea(pre.ewe.box, ewe.box, q = ewe.spp[, list(SVSPP, Fall.q)], 
                            strat.col = 'STRATUM', area.col = 'STRATUM_AREA', group.col = 'SVSPP')
 
   #Collapse species to EwE boxes
   ewe.biomass <- merge(ewe.biomass, ewe.spp[, list(SVSPP, EWE)])
   setkey(ewe.biomass, YEAR, EWE)
-  ewe.biomass[, sum.biomass := sum(Tot.biomass),   by = key(ewe.biomass)]
-  ewe.biomass[, sum.abund   := sum(Tot.abundance), by = key(ewe.biomass)]
+  #ewe.biomass[, sum.biomass := sum(Tot.biomass),   by = key(ewe.biomass)]
+  #ewe.biomass[, sum.abund   := sum(Tot.abundance), by = key(ewe.biomass)]
+  # SKG naming different in function above
+  ewe.biomass[, sum.biomass := sum(tot.biomass),   by = key(ewe.biomass)]
+  ewe.biomass[, sum.abund   := sum(tot.abundance), by = key(ewe.biomass)]
+
   ewe.biomass <- unique(ewe.biomass)
-  ewe.biomass[, c('Tot.biomass', 'Tot.abundance', 'SVSPP') := NULL]
+  #ewe.biomass[, c('Tot.biomass', 'Tot.abundance', 'SVSPP') := NULL]
+  #setnames(ewe.biomass, c('sum.biomass', 'sum.abund'), c('Tot.biomass', 'Tot.abundance'))
+  ewe.biomass[, c('tot.biomass', 'tot.abundance', 'SVSPP') := NULL]
   setnames(ewe.biomass, c('sum.biomass', 'sum.abund'), c('Tot.biomass', 'Tot.abundance'))
   ewe.biomass[, Region := regions[i]]
+  # SKG column names are different, making an assumption here
+  #setcolorder(ewe.biomass, c('Region',        'EWE',        'YEAR', 
+  #                           'strat.biomass', 'biomass.S2', 'biomass.SE', 'Tot.biomass',
+  #                           'strat.abund',   'abund.S2',   'abund.SE',   'Tot.abundance'))
   setcolorder(ewe.biomass, c('Region',        'EWE',        'YEAR', 
-                             'strat.biomass', 'biomass.S2', 'biomass.SE', 'Tot.biomass',
-                             'strat.abund',   'abund.S2',   'abund.SE',   'Tot.abundance'))
+                             'strat.biomass', 'biomass.var', 'biomass.SE', 'Tot.biomass',
+                             'strat.abund',   'abund.var',   'abund.SE',   'Tot.abundance'))
 
   #Merge together
   andre.biomass <- rbindlist(list(andre.biomass, ewe.biomass))
 }
 
 andre.final <- andre.biomass[, list(Region, EWE, YEAR, Tot.biomass)]
+# SKG different name in script above, is it the right object?
+# try this rename
+region.area <- strat.area |> setnames(c('Eco', 'Area'), c('Region', 'AREA'))
+
 andre.final <- merge(andre.final, region.area, by = 'Region')
 andre.final[, kg.km2 := Tot.biomass/AREA]
 
-write.csv(andre.final, file = paste(out.dir, 'Buchheister_request_biomass.csv', sep = ''), row.names = F)
+#write.csv(andre.final, file = paste(out.dir, 'Buchheister_request_biomass.csv', sep = ''), row.names = F)
+write.csv(andre.final, file = here::here('EwE-menhaden-AndreBuchheister/test2014/Buchheister_request_biomass.csv'), row.names = F)
 ```
 
 </details>
+
+This now runs. The output using presumably the same inputs as in the
+original request, does not match the output for the original request.
+
+So although it runs and produces output, we do not have the original
+functions called to produce this, and we can’t tell which is correct.
+
+## My suggestion is to redo the workflow entirely so we are sure what is being done.
 
 # Try with 2024 survdat
