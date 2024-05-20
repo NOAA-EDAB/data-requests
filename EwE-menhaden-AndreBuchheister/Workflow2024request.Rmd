@@ -1,0 +1,622 @@
+---
+title: "Workflow notes"
+author: "Sarah Gaichas"
+date: "`r Sys.Date()`"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Preliminary analysis steps
+
+1. What did Sean do? Find old scripts (best guess is `Andre_data_pulls_v2.R` in 2014request folder)
+2. Compare inputs, 2014 `survdat_lw.RData` which did not use current `survdat` package vs today's `survdat_lw.rds` 
+3. If inputs look similar, run old script and see how far we get
+
+## 1. What did Sean do?
+
+<details>
+<summary>Old script (we think, there was also one called `Andre_data_pulls.R` in a different folder)</summary>
+
+```{r, code=readLines("https://raw.githubusercontent.com/NOAA-EDAB/data-requests/main/EwE-menhaden-AndreBuchheister/2014request/Andre_data_pulls_v2.R"), eval=FALSE}
+
+```
+
+</details>
+
+## 2. Compare inputs
+
+<details>
+<summary>Read in 2014 and 2024 survdat_lw files.</summary>
+
+```{r}
+
+#Grab survdat.r (object is called survdat.lw)
+load(file.path(here::here('EwE-menhaden-AndreBuchheister/2014request/survdat_lw.RData')))
+
+survdat24 <- readRDS(here::here('EwE-menhaden-AndreBuchheister/survdat_lw.rds'))
+
+survdat.lw24 <- survdat24$survdat
+
+```
+
+</details>
+
+<details>
+<summary>Column names, types, and number of rows, columns in `survdat.lw` from 2014:</summary>
+
+```{r}
+cat("Names\n")
+names(survdat.lw)
+str(survdat.lw)
+cat("N rows, N columns\n")
+dim(survdat.lw)
+```
+
+</details>
+
+<details>
+<summary>Column names, types, and number of rows, columns in `survdat.lw24` from 2024:</summary>
+
+```{r}
+cat("Names\n")
+names(survdat.lw24)
+str(survdat.lw24)
+cat("N rows, N columns\n")
+dim(survdat.lw24)
+
+```
+
+</details>
+
+The 2014 pull has an differently named column, `INDWT` which might be `PREDWT` now, need to check. 
+
+The 2014 pull has an additional column, `SIZECAT` which is definitely used in the script. Need to see how to recreate this.
+
+We don't have the sql code that created the 2014 pull.
+
+<details>
+<summary>Attributes of the 2024 pull here:</summary>
+
+```{r}
+cat("SQL query\n")
+cat(paste(names(survdat24$sql), "\n", unlist(survdat24$sql), collapse = "\n\n"))
+cat("\n\nDate pulled\n")
+cat(survdat24$pullDate)
+cat("\n\nFunction call\n")
+print(survdat24$functionCall)
+```
+
+</details>
+
+Some types are different. If the nums need to change to ints in the script we can do that.
+
+## 3. Run old script
+
+<details>
+<summary>Trying initial portion: modified code here reads in 2014 `survdat_lw` file and strata files</summary>
+
+```{r}
+#Required packages
+library(data.table) #; library(RODBC); 
+library(rgdal) #; what has replaced this? 
+library(survdat)
+
+#-------------------------------------------------------------------------------
+count <- function(x){
+    num <- rep(1, length(x))
+    out <- sum(num)
+    return(out)
+    }
+
+#-------------------------------------------------------------------------------
+
+#Grab survdat.r
+#load(file.path(data.dir, 'survdat_lw.RData'))
+load(file.path(here::here('EwE-menhaden-AndreBuchheister/2014request/survdat_lw.RData')))
+
+
+#Grab strata
+#strata <- readOGR(gis.dir, 'strata')
+strata <- readOGR(here::here('EwE-menhaden-AndreBuchheister/2014request/'), 'strata')
+
+#Stratas
+#Andre wants MAB, SNE, GB, and GOM from EMAX work with depth bins of
+#<27m, 27m - 55m, and >55m
+regions <- c('mab.shallow', 'mab.mid', 'mab.deep', 'sne.shallow', 'sne.mid', 'sne.deep',
+                            'gb.mid',  'gb.deep',  'gom.shallow', 'gom.mid', 'gom.deep')
+
+mab.shallow <- c(03150:03440) 
+mab.mid     <- c(01610, 01650, 01690, 01730)
+mab.deep    <- c(01620:01640, 01660:01680, 01700:01720, 01740:01760)
+sne.shallow <- c(03010:03140, 03450:03560)
+sne.mid     <- c(01010, 01050, 01090)
+sne.deep    <- c(01020:01040, 01060:01080, 01100:01120)
+gb.mid      <- c(01190, 01200, 01250)
+gb.deep     <- c(01130:01180, 01210:01230)
+gom.shallow <- c(03570:03590, 03620:03640, 03670, 03680, 03700, 03710, 03730, 
+                 03740, 03760, 03790, 03820, 03840, 03860, 03880)
+gom.mid     <- c(03600, 03610, 03650, 03660, 03690, 03720, 03750, 03770, 03780,
+                 03800, 03810, 03830, 03850, 03870, 03890)
+gom.deep    <- c(03900, 01240, 01260:01300, 01360:01400)
+
+#Add ecoregion designation
+eco.info <- as.data.table(strata@data)
+for(ireg in 1:length(regions)) eco.info[FINSTR_ID %in% get(regions[ireg]), Eco := regions[ireg]]
+strata@data <- eco.info
+
+#Generate area table
+
+#original getarea function from 2014request/R/survdat_functions.R
+getarea <- function(stratum, strat.col){
+  #Get stratum areas
+  lcc <- CRS("+proj=lcc +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-72 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0 ") #Lambert Conformal Conic
+  
+  strat <- spTransform(stratum, lcc)
+  
+  #Calculate areas
+  names(strat@data)[which(names(strat@data) == strat.col)] <- "STRAT"
+  strata.A <- data.table(STRAT = slot(strat, "data")$STRAT, Area = sapply(slot(strat, "polygons"), slot, "area")/1e6)
+  
+  setnames(strata.A, "STRAT", strat.col)
+  
+  return(strata.A)
+}
+
+strat.area <- getarea(strata, 'Eco') # function replaced with get_area?
+#strat.area <- survdat::get_area(strata, 'Eco') #requires different input
+strat.area <- strat.area[, sum(Area), by = 'Eco']
+setnames(strat.area, 'V1', 'Area')
+
+#save(strat.area, file = file.path(out.dir, 'Andre_regions.RData')) #original file for comparison
+saveRDS(strat.area, here::here('EwE-menhaden-AndreBuchheister/test2014/Andre_regions.rds'))
+
+```
+
+</details>
+
+We can read in the old shapefiles used in 2014, but new `survdat::get_area` doesn't work with this format.
+
+For now using the older Survdat function `getarea` but this will need to be updated. The strat.area object was saved in the test2014 folder.
+
+<details>
+<summary>Did we get the same areas from the same file? Yes.</summary>
+
+```{r}
+load(here::here('EwE-menhaden-AndreBuchheister/2014request/Andre_regions.RData'))
+cat("Original file\n")
+strat.area
+```
+
+
+```{r}
+strat.area.test <- readRDS(here::here('EwE-menhaden-AndreBuchheister/test2014/Andre_regions.rds'))
+cat("File we just made\n")
+strat.area.test
+```
+</details>
+
+We will need to ensure the shapefiles here are what we want to use going forward, and figure out equivalents on NEFSC_Spatial or another central source.
+
+<details>
+<summary>Next build species list and set up length stratification</summary>
+
+```{r}
+#Build species list
+#load(file.path(data.dir, 'Species_codes.RData'))
+# object is called spp
+load(file.path(here::here('EwE-menhaden-AndreBuchheister/2014request/Species_codes.RData')))
+andre.spp <- as.data.table(read.csv(here::here("EwE-menhaden-AndreBuchheister/2014request/Andre_groups.csv")))
+spp <- merge(unique(spp[, list(SVSPP, Fall.q, Spring.q)]), andre.spp, by = 'SVSPP', all.x = T)
+spp <- spp[!is.na(EWE), ]
+
+#save(spp, file = file.path(out.dir, 'Buchheister_spp.RData'))
+saveRDS(spp, here::here('EwE-menhaden-AndreBuchheister/test2014/Buchheister_spp.rds'))
+
+# old Survdat poststrat
+poststrat <- function (survdat, stratum, strata.col = 'EPU', na.keep = F) {
+  if (!requireNamespace("rgdal", quietly = TRUE)) {
+    stop("rgdal needed for this function to work. Please install it.",
+         call. = FALSE)
+  }
+  
+  #Data
+  x <- copy(survdat)
+  
+  #Use only station data
+  setkey(x, CRUISE6, STRATUM, STATION)
+  stations <- unique(x, by = key(x))
+  stations <- stations[, list(CRUISE6, STRATUM, STATION, LAT, LON)]
+  
+  #Convert to spatial points data frame
+  coordinates(stations) <- ~LON+LAT
+  stations@proj4string  <- CRS('+init=epsg:4326') #Lat/Lon code
+  lcc <- CRS("+proj=lcc +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-72 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0 ") #Lambert Conformal Conic
+  stations <- spTransform(stations, lcc)
+  
+  #Identify tows within new strata
+  stratum     <- spTransform(stratum, lcc)
+  names(stratum@data)[which(names(stratum@data) == strata.col)] <- "strata.col"
+  stations$newstrata <- over(stations, stratum)[ ,'strata.col']
+  names(stratum@data)[which(names(stratum@data) == "strata.col")] <- strata.col
+  
+  #Output data (convert spatial data frame back to lat/lon)
+  stations <- spTransform(stations, CRS('+init=epsg:4326'))
+  sta.data <- as.data.table(as.data.frame(stations))
+  if(na.keep == F) sta.data <- sta.data[!is.na(newstrata), ]
+  sta.data[, c('LAT', 'LON') := NULL]
+  out <- merge(x, sta.data, by = c('CRUISE6', 'STRATUM', 'STATION'))
+  
+  return(out)
+}
+
+
+#Post stratify
+andre <- poststrat(survdat.lw, strata, strata.col = 'Eco')
+setnames(andre, 'newstrata', 'Region')
+andre <- andre[!is.na(Region), ]
+
+#Segregate by season
+#NA for now
+
+#Set up for stratification
+#Break size structured groups
+andre[SVSPP %in% c(15, 36, 69, 72, 73, 76:78, 103, 105, 135, 139, 145), MULTI := T]
+andre[is.na(MULTI), MULTI := F] 
+
+single.box <- andre[MULTI == F, ]
+
+multi.box  <- andre[MULTI == T, ]
+
+#size group designation
+#For reference: Spiny Dogish = 15
+#               Atl Menhaden = 36
+#               Atl Cod = 73
+#               Summer Flounder = 103
+#               Yellowtail Flounder = 105
+#               Bluefish = 135
+#               Striped Bass = 139
+#               Weakfish = 145
+#               Hakes (Offshore, Silver, White, Red, Spotted) = 69, 72, 76, 77, 78
+multi.box[SVSPP == 15  & LENGTH <= 60, SIZE := 'SMALL']
+multi.box[SVSPP == 15  & LENGTH >  60, SIZE := 'LARGE']
+multi.box[SVSPP == 36  & LENGTH <= 14, SIZE := 'SMALL']
+multi.box[SVSPP == 36  & LENGTH >  14 & LENGTH <= 24, SIZE := 'MEDIUM']
+multi.box[SVSPP == 36  & LENGTH >  24, SIZE := 'LARGE']
+multi.box[SVSPP == 73  & LENGTH <= 20, SIZE := 'SMALL']
+multi.box[SVSPP == 73  & LENGTH >  20 & LENGTH <= 50, SIZE := 'MEDIUM']
+multi.box[SVSPP == 73  & LENGTH >  50, SIZE := 'LARGE']
+multi.box[SVSPP == 103 & LENGTH <= 25, SIZE := 'SMALL']
+multi.box[SVSPP == 103 & LENGTH >  25, SIZE := 'LARGE']
+multi.box[SVSPP == 105 & LENGTH <= 20, SIZE := 'SMALL']
+multi.box[SVSPP == 105 & LENGTH >  20, SIZE := 'LARGE']
+multi.box[SVSPP == 135 & LENGTH <= 30, SIZE := 'SMALL']
+multi.box[SVSPP == 135 & LENGTH >  30 & LENGTH <= 60, SIZE := 'MEDIUM']
+multi.box[SVSPP == 135 & LENGTH >  60, SIZE := 'LARGE']
+multi.box[SVSPP == 139 & LENGTH <= 25, SIZE := 'SMALL']
+multi.box[SVSPP == 139 & LENGTH >  25 & LENGTH <= 70, SIZE := 'MEDIUM']
+multi.box[SVSPP == 139 & LENGTH >  70, SIZE := 'LARGE']
+multi.box[SVSPP == 145 & LENGTH <= 20, SIZE := 'SMALL']
+multi.box[SVSPP == 145 & LENGTH >  20 & LENGTH <= 40, SIZE := 'MEDIUM']
+multi.box[SVSPP == 145 & LENGTH >  40, SIZE := 'LARGE']
+multi.box[SVSPP %in% c(69, 72, 76:78) & LENGTH <= 40, SIZE := 'SMALL']
+multi.box[SVSPP %in% c(69, 72, 76:78) & LENGTH >  40, SIZE := 'LARGE']
+
+multi.box[, SIZE := as.factor(SIZE)]
+
+#Sum weight at length
+setkey(multi.box, CRUISE6, STRATUM, STATION, SVSPP, SIZE)
+multi.box[, box.biomass := sum(WGTLEN), by = key(multi.box)]
+
+#Alter SVSPP so prestrat treats as seperate species
+multi.box[SIZE == 'SMALL',  SVSPP := SVSPP + 1000L] 
+multi.box[SIZE == 'MEDIUM', SVSPP := SVSPP + 2000L]
+multi.box[SIZE == 'LARGE',  SVSPP := SVSPP + 3000L]
+# These are uncommented in original script, can't see how they could work
+# unless ewe.spp was in memory from somewhere else
+#ewe.spp[EWE %like% '\\(S)', SVSPP := SVSPP + 1000L]
+#ewe.spp[EWE %like% '\\(M)', SVSPP := SVSPP + 2000L]
+#ewe.spp[EWE %like% '\\(L)', SVSPP := SVSPP + 3000L]
+
+#Change biomass and drop extra columns to merge back
+multi.box[, BIOMASS := box.biomass]
+multi.box[, c('SIZE', 'box.biomass') := NULL]
+
+#drop unknown lengths
+multi.box <- multi.box[!is.na(LENGTH), ]
+
+#Merge multi-stanza species with single box species
+andre <- rbindlist(list(multi.box, single.box))
+
+```
+
+</details>
+
+Is the data from this species list captured in an existing object? it includes Fall and Spring q values.
+
+Are we missing an `ewe.spp` object somewhere? Bypassed this but maybe important?
+
+Now try the calculations.
+
+<details>
+<summary>For these we need the rest of the old Survdat functions</summary>
+
+```{r}
+stratmean <- function (survdat, groups = 'all', group.col = 'SVSPP', 
+                       merge.sex = T, sex.col = 'CATCHSEX', 
+                       strat.col = 'STRATUM', poststrat = F, nsta.col = 'ntows', 
+                       area.wgt = 'W.h', weight = 'BIOMASS', number = 'ABUNDANCE') {
+  x <- copy(survdat)
+  
+  #Remove length data if present
+  setkey(x, CRUISE6, STRATUM, STATION, SVSPP, CATCHSEX)
+  x <- unique(x, by = key(x))
+  x[, c('LENGTH', 'NUMLEN') := NULL]
+  
+  setnames(x, c(group.col, sex.col, strat.col, nsta.col, area.wgt, weight, number),
+           c('group', 'sex', 'strat', 'ntows', 'W.h', 'BIO', 'NUM'))
+  
+  #Merge sex or keep seperate
+  if(merge.sex == F) x[, group := paste(group, sex, sep = '')]
+
+  setkey(x, CRUISE6, strat, STATION, group)
+  x[, BIO := sum(BIO), by = key(x)]
+  x[, NUM := sum(NUM), by = key(x)]
+  x <- unique(x, by = key(x))
+  
+  #Fix Na's
+  x[is.na(BIO), BIO := 0]
+  x[is.na(NUM), NUM := 0]
+  
+  #Calculate total number of stations per year
+  setkey(x, strat, YEAR)
+  N <- unique(x, by = key(x))
+  N <- N[, sum(ntows), by = 'YEAR']
+  setnames(N, 'V1', 'N')
+  
+  #Subset data if necessary
+  if(groups[1] != 'all'){
+    if(merge.sex == F) groups <- c(paste(groups, 0, sep = ''), paste(groups, 1, sep = ''),
+                                   paste(groups, 2, sep = ''), paste(groups, 3, sep = ''))
+    x <- x[group %in% groups, ]
+  }
+  
+  #Calculate weight per tow and number per tow
+  setkey(x, group, strat, YEAR)
+  
+  x[, biomass.tow   := sum(BIO) / ntows, by = key(x)]
+  x[, abundance.tow := sum(NUM) / ntows, by = key(x)]
+  
+  #Calculated stratified means
+  x[, weighted.biomass   := biomass.tow   * W.h]
+  x[, weighted.abundance := abundance.tow * W.h]
+  
+  #Variance - need to account for zero catch
+  x[, n.zero     := ntows - length(BIO), by = key(x)]
+  
+  x[, zero.var.b := n.zero * (0 - biomass.tow)^2]
+  x[, vari.b := (BIO - biomass.tow)^2]
+  x[, Sh.2.b := (zero.var.b + sum(vari.b)) / (ntows - 1), by = key(x)]
+  x[is.nan(Sh.2.b), Sh.2.b := 0]
+  
+  x[, zero.var.a := n.zero * (0 - abundance.tow)^2]
+  x[, vari.a := (NUM - abundance.tow)^2]
+  x[, Sh.2.a := (zero.var.a + sum(vari.a)) / (ntows - 1), by = key(x)]
+  x[is.nan(Sh.2.a), Sh.2.a := 0]
+  
+  stratified <- unique(x, by = key(x))
+  
+  stratified <- merge(stratified, N, by = 'YEAR')
+  
+  #Stratified mean  
+  setkey(stratified, group, YEAR)
+  
+  stratified[, strat.biomass := sum(weighted.biomass),   by = key(stratified)]
+  stratified[, strat.abund   := sum(weighted.abundance), by = key(stratified)]
+  
+  #Stratified variance
+  if(poststrat == F){
+    stratified[, biomass.var := sum(((W.h^2) * Sh.2.b) / ntows), by = key(stratified)]
+    stratified[, abund.var   := sum(((W.h^2) * Sh.2.a) / ntows), by = key(stratified)]
+  }
+  
+  if(poststrat == T){
+    stratified[, biomass.var := sum(Sh.2.b * W.h) / N + sum((1 - W.h) * Sh.2.b) / N^2, by = key(stratified)]
+    stratified[, abund.var   := sum(Sh.2.a * W.h) / N + sum((1 - W.h) * Sh.2.a) / N^2, by = key(stratified)]
+    
+  }
+  
+  #standard error of the means
+  stratified[, biomass.SE := sqrt(biomass.var), by = key(stratified)]
+  stratified[, abund.SE   := sqrt(abund.var),   by = key(stratified)]
+  
+  #Delete extra rows/columns
+  stratified.means <- unique(stratified, by = key(stratified))
+  stratified.means <- stratified.means[, list(YEAR, group, sex, N, strat.biomass, biomass.var, biomass.SE, 
+                                              strat.abund, abund.var, abund.SE)]
+  if(merge.sex == T) stratified.means[, sex := NULL]
+  
+  if(merge.sex == F){
+    stratified.means[, glen := nchar(group)]
+    for(i in 2:4){
+      stratified.means[glen == i, group := as.numeric(substr(group, 1, i - 1))]
+    }
+    stratified.means[, glen := NULL]
+    setkey(stratified.means, YEAR, SVSPP, sex)
+  }
+  
+  setnames(stratified.means, 'group', group.col)
+  
+  return(stratified.means)
+}
+
+sweptarea <- function (survdat, stratmean, q = NULL, a = 0.0384, strat.col, area.col, 
+                       group.col = 'SVSPP') {
+  #This is necessary to break the link with the original data table
+  stratprep.x  <- copy(survdat)
+  stratmean.x  <- copy(stratmean)
+  
+  #Calculate A (Total area)
+  setnames(stratprep.x, c(strat.col, area.col),
+           c('STRAT', 'S.AREA'))
+  
+  setkey(stratprep.x, YEAR, STRAT)
+  stratum <- unique(stratprep.x, by = key(stratprep.x))
+  stratum <- stratum[, sum(S.AREA, na.rm = T), by = 'YEAR']
+  setnames(stratum, "V1", "A")
+  
+  #Merge A
+  swept.area <- merge(stratmean.x, stratum, by = 'YEAR')
+  
+  #Merge q
+  if(is.null(q)) q <- data.table(groups = unique(swept.area[, get(group.col)]), q = 1)
+  setnames(q, names(q), c(group.col, 'q'))
+  swept.area <- merge(swept.area, q, by = group.col, all.x = T)
+  swept.area[is.na(q), q := 1]
+  
+  #Calculate swept area biomass
+  swept.area[, tot.biomass   :=       (strat.biomass * A/a)/q]
+  swept.area[, tot.abundance := round((strat.abund   * A/a)/q)]
+  
+  #Calculate variance
+  swept.area[, var.constant := (A/a)/q]
+  swept.area[, tot.bio.var   := var.constant^2 * biomass.var]
+  swept.area[, tot.abund.var := var.constant^2 * abund.var]
+  
+  #Calculate standard error
+  swept.area[, tot.bio.SE   := sqrt(tot.bio.var)]
+  swept.area[, tot.abund.SE := sqrt(tot.abund.var)]
+  
+  #remove extra columns - need to add sex column if stratmean object does not have one
+  #then remove before output
+  if(length(which(names(stratmean.x) == 'sex')) == 0) swept.area[, sex := 0]
+  swept.area <- swept.area[, list(YEAR, get(group.col), sex, N, 
+                                  strat.biomass, biomass.var,   biomass.SE, 
+                                  strat.abund,   abund.var,     abund.SE,
+                                  tot.biomass,   tot.bio.var,   tot.bio.SE,
+                                  tot.abundance, tot.abund.var, tot.abund.SE)]
+  setnames(swept.area, 'V2', group.col)
+  if(length(which(names(stratmean.x) == 'sex')) == 0) swept.area[, sex := NULL]
+  
+  return(swept.area)
+}
+
+# is this what is called `prestrat` below?
+stratprep <- function (survdat, areas, strat.col, area.col = 'Area') {
+  x <- copy(survdat)
+  y <- copy(areas)
+  
+  setnames(x, strat.col, 'STRAT')
+  setnames(y, c(strat.col, area.col), 
+           c('STRAT',   'S.AREA'))
+  if(strat.col != 'STRATUM'){
+    x[, STATION2 := as.numeric(paste0(STRATUM, STATION))][]
+    setnames(x, c('STATION', 'STATION2'), c('ORIGSTATION', 'STATION'))
+  } 
+  
+  #Station data - remove catch/length
+  setkey(x, CRUISE6, STRAT, STATION)
+  stations <- unique(x, by = key(x))
+  stations <- stations[, list(YEAR, CRUISE6, STRAT, STATION)]
+  
+  #count stations
+  setkey(stations, YEAR, STRAT)
+  stations[, ntows := length(STATION), by = key(stations)]
+  
+  #Merge stations and area
+  stations <- merge(stations, y, by = 'STRAT', all.x = T)
+  
+  #Calculate stratum weight
+  setkey(stations, 'YEAR', 'STRAT')
+  strat.year <- unique(stations, by = key(stations))
+  strat.year[, c('CRUISE6', 'STATION', 'ntows') := NULL]
+  strat.year[, W.h := S.AREA / sum(S.AREA, na.rm = T), by = YEAR]
+  strat.year[is.na(W.h), W.h := 0]
+  strat.year[, S.AREA := NULL]
+  
+  #Merge back
+  stations <- merge(stations, strat.year, by = key(stations))
+  
+  #Merge catch with station data
+  strat.survdat <- merge(x, stations, by = c('YEAR', 'CRUISE6', 'STRAT', 'STATION'))
+  
+  setnames(strat.survdat, c('STRAT', 'S.AREA'),
+           c(strat.col, area.col))
+  
+  if(strat.col != 'STRATUM'){
+    setnames(strat.survdat, c('STATION', 'ORIGSTATION'), c('STATION2', 'STATION'))
+    strat.survdat[, STATION2 := NULL]
+  }
+  
+  return(strat.survdat)
+}
+
+
+```
+
+</details> 
+
+The `survdat_functions.R` is missing the `prestrat` function used in the code below. I am hoping that I can substitute the function `stratprep` in here. 
+
+Sadly no. This breaks at the `stratprep` function. I tried passing it the `strat.area` object but it does not have the column names this function is looking for.
+
+<details>
+<summary>Now try the calculations</summary>
+
+```{r, eval=FALSE}
+#Calculate stratified mean/ swept area estimate
+#Need to do this on a region by region bases
+andre.biomass <- c()
+for(i in 1:length(regions)){
+  #Segregate by region
+  andre.region <- andre[Region == regions[i], ]
+  andre.region[, Region := NULL] #Will get added back in next step
+  
+  #Run pre stratmean function
+  #andre.pre <- prestrat(andre.region, stratum, strat.col = 'STRATUM', area.col = 'STRATUM_AREA')
+  
+  #prestrat does not exist, renamed stratprep?
+  andre.pre <- stratprep(andre.region, strat.area, strat.col = 'STRATUM', area.col = 'STRATUM_AREA')
+  
+  #Reduce number of species
+  pre.ewe.box <- merge(andre.pre, ewe.spp, by = 'SVSPP')
+  
+  #Calculate stratified mean
+  ewe.box <- stratmean(pre.ewe.box, group.col = 'SVSPP', strat.col = 'STRATUM')
+
+  #Calculate swept area
+  ewe.biomass <- sweptarea(pre.ewe.box, ewe.box, q = ewe.spp[, list(SVSPP, fallq)], 
+                           strat.col = 'STRATUM', area.col = 'STRATUM_AREA', group.col = 'SVSPP')
+
+  #Collapse species to EwE boxes
+  ewe.biomass <- merge(ewe.biomass, ewe.spp[, list(SVSPP, EWE)])
+  setkey(ewe.biomass, YEAR, EWE)
+  ewe.biomass[, sum.biomass := sum(Tot.biomass),   by = key(ewe.biomass)]
+  ewe.biomass[, sum.abund   := sum(Tot.abundance), by = key(ewe.biomass)]
+  ewe.biomass <- unique(ewe.biomass)
+  ewe.biomass[, c('Tot.biomass', 'Tot.abundance', 'SVSPP') := NULL]
+  setnames(ewe.biomass, c('sum.biomass', 'sum.abund'), c('Tot.biomass', 'Tot.abundance'))
+  ewe.biomass[, Region := regions[i]]
+  setcolorder(ewe.biomass, c('Region',        'EWE',        'YEAR', 
+                             'strat.biomass', 'biomass.S2', 'biomass.SE', 'Tot.biomass',
+                             'strat.abund',   'abund.S2',   'abund.SE',   'Tot.abundance'))
+
+  #Merge together
+  andre.biomass <- rbindlist(list(andre.biomass, ewe.biomass))
+}
+
+andre.final <- andre.biomass[, list(Region, EWE, YEAR, Tot.biomass)]
+andre.final <- merge(andre.final, region.area, by = 'Region')
+andre.final[, kg.km2 := Tot.biomass/AREA]
+
+write.csv(andre.final, file = paste(out.dir, 'Buchheister_request_biomass.csv', sep = ''), row.names = F)
+
+```
+
+</details>
+
+
+# Try with 2024 survdat
+
