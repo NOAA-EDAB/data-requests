@@ -50,3 +50,7 @@ po/*~
 rsconnect/
 
 .DS_Store
+
+
+## Specific PII data
+comdat.rds
