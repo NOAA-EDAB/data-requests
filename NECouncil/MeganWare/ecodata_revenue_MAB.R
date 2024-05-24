@@ -82,7 +82,7 @@ guilddat <- rbind(rev_guild, rev_tot) |>
   dplyr::mutate(feeding.guild = factor(feeding.guild, levels = c("Apex Predator","Piscivore","Planktivore","Benthivore","Benthos"))) |>
   dplyr::group_by(Var, EPU) |>
   dplyr::filter(Time >1982) |>
-  dplyr::filter(EPU %in% c("GB","GOM")) |>
+  dplyr::filter(EPU %in% c("MAB")) |>
   dplyr::ungroup()
 
 totdat <- rbind(rev_agg, rev_total) |>
@@ -90,10 +90,10 @@ totdat <- rbind(rev_agg, rev_total) |>
                 Var = Status,
                 Units = "USD") |>
   dplyr::filter(Time >1982) |>
-  dplyr::filter(EPU %in% c("GB","GOM")) |>
+  dplyr::filter(EPU %in% c("MAB")) |>
   dplyr::ungroup() |>
   dplyr::select(-Status)
 
 
-readr::write_csv(totdat,here::here("NECouncil/MeganWare/totalRevenue.csv"))
-readr::write_csv(guilddat,here::here("NECouncil/MeganWare/guildRevenue.csv"))
+readr::write_csv(totdat,here::here("NECouncil/MeganWare/totalRevenueMAB.csv"))
+readr::write_csv(guilddat,here::here("NECouncil/MeganWare/guildRevenueMAB.csv"))

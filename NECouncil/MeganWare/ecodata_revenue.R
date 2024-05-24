@@ -19,7 +19,7 @@
 #'
 
 # pulled code from ecodata::plot_comdat
-
+# For GB,GOM
 rev_managed <- ecodata::comdat |>
   dplyr::filter(Var %in% c("Piscivore MAFMC managed species - Revenue",
                            "Planktivore MAFMC managed species - Revenue",
