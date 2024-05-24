@@ -10,6 +10,9 @@
 #'
 #'
 
+#############################################################
+#### EXPLORATORY . FINAL PRODUCT FOUND BELOW ##############
+#############################################################
 channel <- dbutils::connect_to_database("NEFSC_USERS","user")
 
 # species list from Bart. Many species requested have Na nespp3A
@@ -71,10 +74,35 @@ speciesFromBart |>
   dplyr::distinct() |>
   readr::write_csv(here::here("GMRI/Mills_DiFiore/mapCodes.csv"))
 
+##############################################################
+##### Real data pull now we have all the info we need
+###############################################################
+comData <- readRDS(here::here("GMRI/Mills_DiFiore/comdat.rds"))
+
+# filter data by stat areas used in SOE for GB,GOM,MAB,SS
+gom <- data.table::data.table(AREA = c(500, 510, 512:515), EPU = 'GOM')
+gb  <- data.table::data.table(AREA = c(521:526, 551, 552, 561, 562), EPU = 'GB')
+mab <- data.table::data.table(AREA = c(537, 539, 600, 612:616, 621, 622, 625, 626, 631, 632),
+                              EPU = 'MAB')
+ss  <- data.table::data.table(AREA = c(463:467, 511), EPU = 'SS')
+epuAreas <- data.table::rbindlist(list(gom, gb, mab, ss)) |>
+  dplyr::as_tibble()
 
 
+# species list from Bart. This is the updated list based on the list of
+# species found in the data
+species <- readr::read_csv(here::here("GMRI/Mills_DiFiore/mapCodes_refined.csv")) |>
+  dplyr::filter(!is.na(NESPP3)) |>
+  dplyr::select(NESPP3,COMMON_NAME,SCIENTIFIC_NAME) |>
+  dplyr::distinct()
 
+bart <- comData$comland |>
+  dplyr::left_join(species,by = "NESPP3") |>
+  dplyr::as_tibble() |>
+  dplyr::group_by(YEAR,AREA,NESPP3,COMMON_NAME,SCIENTIFIC_NAME) |>
+  dplyr::summarise(MTLIVE = sum(SPPLIVMT),
+                   .groups="drop") |>
+  dplyr::left_join(epuAreas,by = "AREA")
 
-
-
+saveRDS(bart,here::here("GMRI/Mills_DiFiore/landingsByYearAreaSpecies.rds"))
 
