@@ -54,3 +54,4 @@ rsconnect/
 
 ## Specific PII data
 comdat.rds
+landingsByYearAreaSpecies.rds
