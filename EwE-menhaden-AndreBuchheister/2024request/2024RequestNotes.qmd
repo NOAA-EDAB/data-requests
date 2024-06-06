@@ -1,0 +1,59 @@
+---
+title: "EWE data comparison"
+format: html
+editor: visual
+---
+
+Comparison of 2014 swept area biomass estimates with estimates in 2024.
+For the 2024 estimates both fall and spring swept area biomass estimates are calculated using the `survdat` package.
+
+Code from 2014 could be replicated up to the point where swept area biomass is estimated. From that point on it can not be replicated perfectly. Below are figures showing how closely the 2024 estimates compare with the data previously provided
+
+## 2024 Code
+
+The "new" code has been split into 2 functions. One to pull the data, the other to estimate swep area biomass
+
+<details>
+```{r 2024code, echo = F,eval = T}
+cat(paste0(readLines(here::here("EwE-menhaden-AndreBuchheister/2024request/Andre_data_pulls_v2_update.R")), collapse="\n"))
+```
+</details>
+
+## Spatial regions 
+
+```{r map,eval = T, echo = T}
+source(here::here("EwE-menhaden-AndreBuchheister/2024request/Andre_data_pulls_v2_update_pulldata.r"))
+a <- andreprep()
+
+plot(a$polygon)
+
+
+```
+## Comparisons
+
+Depending on the species the spring biomass is a better estimate of the 2014 request than the fall biomass. For other species the opposite is true.
+
+For example
+
+1. gb.deep region - bluefish is not present in the spring but present in the fall, squid is similar.
+2. gb.mid region - other small pelagics are better matched in the spring rather than the fall
+
+::: {.panel-tabset}
+
+### Fall
+
+```{r plotfall, eval = T,echo =TRUE, out.width="100%"}
+source(here::here("EwE-menhaden-AndreBuchheister/2024request/compare_requests.r"))
+compare_requests("fall")
+
+```
+
+
+
+### Spring
+```{r plotspring, eval = T,echo =TRUE, out.width="100%"}
+compare_requests("spring")
+
+```
+
+:::
