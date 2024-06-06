@@ -19,7 +19,7 @@ cat(paste0(readLines(here::here("EwE-menhaden-AndreBuchheister/2024request/Andre
 ```
 </details>
 
-## Spatial regions 
+## Geographic regions 
 
 ```{r map,eval = T, echo = T}
 source(here::here("EwE-menhaden-AndreBuchheister/2024request/Andre_data_pulls_v2_update_pulldata.r"))
@@ -29,14 +29,38 @@ plot(a$polygon)
 
 
 ```
+## Areas of geographic regions
+
+When the area of the geographic regions are calculated from the shape file they do not match the areas listed in the 2014 data set. Not sure why since the underlying trawl strata haven't changed.
+
+* Maybe a different set of strata were used from the code we have been using
+* Maybe a different projection was implemented
+* Maybe a slightly different set of shapefiles were used
+
+```{r areas, eval = T}
+data2014 <- readr::read_csv(here::here("EwE-menhaden-AndreBuchheister/2014request/Buchheister_request_biomass.csv"), show_col_types = F) |> 
+  dplyr::distinct(Region,AREA) 
+data2024 <- survdat::get_area(a$polygon,"eco")
+
+data2024 |> dplyr::left_join(data2014,by = c("STRATUM"="Region")) |> 
+  dplyr::rename(Region = STRATUM,
+                d2024 = Area,
+                d2014 = AREA) |> 
+  DT::datatable()
+
+```
+
+
 ## Comparisons
 
-Depending on the species the spring biomass is a better estimate of the 2014 request than the fall biomass. For other species the opposite is true.
+Depending on the species, the spring biomass is a better estimate of the 2014 request than the fall biomass. For other species the opposite is true.
 
 For example
 
 1. gb.deep region - bluefish is not present in the spring but present in the fall, squid is similar.
 2. gb.mid region - other small pelagics are better matched in the spring rather than the fall
+
+While the 2014 data can not be reproduced, the trends look similar. Maybe it is time to send the data to Andre?
 
 ::: {.panel-tabset}
 
