@@ -1,6 +1,9 @@
 ---
 title: "EWE data comparison"
-format: html
+format:
+  html:
+    embed-resources: true   
+    #self-contained: true
 editor: visual
 ---
 
