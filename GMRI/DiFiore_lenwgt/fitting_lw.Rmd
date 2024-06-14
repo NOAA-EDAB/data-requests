@@ -1,0 +1,87 @@
+---
+title: "Fitting Weight as a function of Length"
+output: html_document
+date: "2024-06-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+## Length-weight relationship {#len-weight}
+
+Length-weight data is obtained from SVDBS. The relationship between the weight and length of fish *i* is modelled as,
+
+$$ W_i = \alpha L_i ^ \beta e^{z_i}$$
+
+
+where $\alpha$ and $\beta$ are intercept and slope parameters (on log scale) and $z_i \sim N(0,\sigma^2)$ 
+
+This model can be extended to :
+
+$$ W_{ji} = \alpha L_{ji} ^ {\beta_j} e^{z_i} $$
+for season j, j= 1, ..., 4 (spring, summer, fall, winter) or sex j, j = 1, ..., 3 (0, 1, 2 categories) or extended further to include season:sex combinations. These models are all nested and can therefore be tested using standard statistical methods. 
+
+## Fitting
+
+$$ W_i = \alpha L_i ^ \beta e^{z_i}$$
+
+where $z_i \sim N(0,\sigma^2)$ but $e^{z_i} \sim LN(0,\sigma^2)$  (Log normal)
+
+Take the logs and fit using standard linear regression
+
+$$ log(W_i) = log(\alpha) + \beta log(L_i) + z_i$$
+let a =  $log(\alpha)$
+
+$$ log(W_i) = a + \beta log(L_i) + z_i$$
+Regress $log(W_i)$ on $log(L_i)$ to estimate a and $\beta$. Calculate $\sigma^2$ 
+
+Now to estimate Weight using this fitted model most people do this:
+
+$$\hat{W_i} = e^{a + \beta log(L_i)}$$
+when they should do this:
+
+$$
+\begin{aligned}
+\hat{W_i} = e^{a + \beta log(L_i)}e^{\sigma^2/2} \\
+ = e^{a + \beta log(L_i) + \sigma^2/2}
+\end{aligned}
+$$
+
+You'll note in the Wigley et al paper, there is no mention of $\sigma$. Only standard errors for parameter estimates. Without the estimate of $\sigma$ all estimates of Weight using the fitted model will be biased on the small side.
+
+### Relationship between Normal and Log Normal
+
+If 
+
+$$log(Z) \sim N(\mu,\sigma^2)$$
+
+then
+
+$$Z \sim ~ LN(\mu, \sigma^2)$$
+Same parameters, different interpretations, different distributions
+
+Now
+
+$$E(log(Z)) = \mu$$
+
+but
+
+$$E(Z) = e^{\mu + \frac{\sigma^2}{2}}$$
+and 
+
+$$Var(Z) = \sigma^2$$
+but
+
+$$Var(Z) = (e^{\sigma^2} - 1)(e ^{2\mu + \sigma^2})$$
+
+Hope this helps
+
+In addition to creating new length-weight models it may be interesting to see how things have changed since this study was completed (1992-1999). I have heard many stock assessment scientists say that they believe this relationship has changed over time but i have not had time to determine by what extent.
+
+I think it would be a nice paper to demonstrate this using the data provided. Would enjoy being a part of this.
+
+Andy
+
+
+
