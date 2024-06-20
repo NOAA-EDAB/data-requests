@@ -11,7 +11,7 @@
 #'
 #'   Additional study areas (2 more)
 
-channel <- dbutils::connect_to_database("NEFSC_USERS","abeet")
+channel <- dbutils::connect_to_database("NEFSC_USERS","user")
 
 ## pull survey data
 data <- survdat::get_survdat_data(channel)

@@ -9,7 +9,7 @@
 #'   you could help me with? Sarah Weisberg from Stony Brook
 #'   and Philip Politis referred me to you for this.
 
-channel <- dbutils::connect_to_database("NEFSC_USERS","abeet")
+channel <- dbutils::connect_to_database("NEFSC_USERS","user")
 
 ## pull survey data
 data <- survdat::get_survdat_data(channel)
