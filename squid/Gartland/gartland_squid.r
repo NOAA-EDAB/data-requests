@@ -1,6 +1,7 @@
 #' Squid data for Gartland
 #'
-#' Working off Seans previous script
+#' Working off Seans previous script.
+#' Requested by Jessica Blaylock 06/2024
 #'
 #'
 #'
@@ -25,8 +26,8 @@ all.catch <- data.table::merge.data.table(all.catch,    loligo, all = T)
 
 data.table::setcolorder(all.catch, c('YEAR', 'SEASON'))
 
-save(all.catch, file = here::here('data/squid/Gartland', 'Gartland_squid_catch2024.RData'))
+save(all.catch, file = here::here('squid/Gartland', 'Gartland_squid_catch2024.RData'))
 
 #Length data
 squid.length <- survdat$survdat[SVSPP %in% c(502, 503), ]
-save(squid.length, file = here::here('data', 'Gartland_squid_length.RData'))
+save(squid.length, file = here::here('squid/Gartland', 'Gartland_squid_length2024.RData'))
