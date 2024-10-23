@@ -1,6 +1,7 @@
 #' Run comlandr for Rpath fleet designations
 #'
-#'
+#' Landings and discards created for All EPUs with
+#' NEGEAR2 aggregaed to fleets
 #'
 #'
 
