@@ -34,6 +34,16 @@ dataPull <- comlandr::get_comland_data(channel,
                                 knStrata = c('HY', 'QY','MONTH','NEGEAR', 'TONCL2', 'AREA')
 )
 
+# filter out NAs for EPUs (outside NEUS domain)
+# Relabel NA fleets as "Other" (Not sure which NEGEAR codes are not mapped to a fleet
+# Probably should check this and quantify associated landings )
+dataPull$comland <- dataPull$comland |>
+  dplyr::filter(!is.na(EPU)) |>
+  dplyr::mutate(Fleet = dplyr::case_when(is.na(Fleet) ~ "Other",
+                                         .default = Fleet))
+
+
+
 saveRDS(dataPull,here::here("Rpath","comlandRpath.rds"))
 rpathDiscards <- comlandr::get_comdisc_data(channel,
                                          comland=dataPull,
@@ -43,4 +53,4 @@ rpathDiscards <- comlandr::get_comdisc_data(channel,
                                          fleetDescription = "Fleet",
                                          extendTS = T)
 
-saveRDS(rpathDiscards,here::here("getcomdisc.rds"))
+saveRDS(rpathDiscards,here::here("Rpath","getcomdisc.rds"))
