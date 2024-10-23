@@ -53,4 +53,4 @@ rpathDiscards <- comlandr::get_comdisc_data(channel,
                                          fleetDescription = "Fleet",
                                          extendTS = T)
 
-saveRDS(rpathDiscards,here::here("Rpath","getcomdisc.rds"))
+saveRDS(rpathDiscards,here::here("Rpath","comdiscRpath.rds"))
