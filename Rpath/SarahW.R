@@ -18,6 +18,10 @@ epuAreas <- rbindlist(list(gom, gb, mab, ss))
 epuAreas[, NESPP3 := 1]
 epuAreas[, MeanProp := 1]
 
+
+
+# You'll need to add your username and specify the server
+channel <- dbutils::connect_to_database("server","username")
 # pull aggregated data
 dataPull <- comlandr::get_comland_data(channel,
                                 filterByYear = NA,
