@@ -1,0 +1,14 @@
+---
+title: "Caveats"
+output: html_document
+date: "2025-06-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data
+
+* Discard data are discards of species found in the landings data only.
+* Discard data are based on observer data. Discards are simply what was thrown overboard. It does NOT assume all fish are dead. Would need to apply some mortality coefficient, especially for elasmobranchs.
