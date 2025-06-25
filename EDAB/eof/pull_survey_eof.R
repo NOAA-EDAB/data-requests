@@ -25,7 +25,15 @@ ggplot2::ggplot() +
     alpha = 0.5
   ) +
   ggplot2::geom_sf(
-    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% NEUSStrata),
+    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% GOM),
+    color = "green"
+  ) +
+  ggplot2::geom_sf(
+    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% GB),
+    color = "red"
+  ) +
+  ggplot2::geom_sf(
+    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% MAB),
     color = "blue"
   ) +
   ggplot2::coord_sf(xlim = c(-80, -60), ylim = c(35, 50)) +
