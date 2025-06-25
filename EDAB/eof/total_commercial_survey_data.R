@@ -3,11 +3,15 @@
 #' Link request
 #'
 #' See data_notes.rmd for breakdown
+#'
+#' dependent on pull_commercial_eof.R and
+#'
 terminalYear <- 2024
 
 #read in landings and discards
-landings <- readRDS(here::here("EDAB/eof/comlandEOFLiveAggGear.rds"))$comland |>
-  dplyr::filter(YEAR <= terminalYear)
+landings <- readRDS(here::here("EDAB/eof/true_landings_EOF.rds"))$comland |>
+  dplyr::filter(YEAR <= terminalYear) |>
+  dplyr::filter(EPU %in% c("GOM", "GB", "MAB"))
 discards <- readRDS(here::here("EDAB/eof/otherfish_discards_EOF.rds")) |>
   dplyr::filter(YEAR <= terminalYear)
 discards_elasmobranchs <- readRDS(here::here(
