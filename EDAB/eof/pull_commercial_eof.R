@@ -103,6 +103,23 @@ discs <- readRDS(here::here("EDAB/eof/discardscomlandEOFLiveAggGear.rds"))
 landing_species <- unique(land$comland$NESPP3)
 landed_species_discards <- discs$comdisc |>
   dplyr::filter(NESPP3 %in% landing_species)
+# seperate discards by species groups. use RPATH groups
+groupings <- ecodata::species_groupings |>
+  dplyr::select(NESPP3, RPATH) |>
+  dplyr::filter(!is.na(NESPP3)) |>
+  dplyr::distinct() |>
+  dplyr::mutate(
+    RPATH = dplyr::case_when(
+      grepl("Demersals", RPATH) ~ "Demersals",
+      TRUE ~ RPATH
+    )
+  ) |>
+  dplyr::distinct() |>
+  dplyr::filter(!(NESPP3 == 363 & RPATH == "Demersals"))
+
+# join RPATH groupings to discards
+landed_species_discards <- landed_species_discards |>
+  dplyr::left_join(groupings, by = "NESPP3")
 
 nonlanded_species_discards <- discs$comdisc |>
   dplyr::filter(!(NESPP3 %in% landing_species))
