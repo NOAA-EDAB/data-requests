@@ -53,7 +53,7 @@ ggplot2::ggplot() +
 The survey data are from the Northeast Fisheries Science Center (NEFSC) Bottom Trawl Survey (BTS). The BTS is conducted annually in the spring and fall in the Gulf of Maine, Georges Bank, and Mid-Atlantic Bight. The survey data are used to estimate the biomass of fish and invertebrates in the Northeast U.S. continental shelf ecosystem. Data are pulled and swept area estimates are calculated using the [`survdat`](https://noaa-edab.github.io/survdat/) package
 
 ```{r surveyData, echo = FALSE, eval = TRUE}
-survey <- readRDS(here::here("EDAB/eof/swept_area_biomass_species_EOF.rds"))
+survey <- readRDS(here::here("EDAB/eof/data_output/swept_area_biomass_species_EOF.rds"))
 
 survey |> 
   dplyr::group_by(YEAR, EPU) |>
