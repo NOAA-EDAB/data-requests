@@ -75,21 +75,43 @@ biomass_GOM <- biomass_GOM |>
   dplyr::filter(variable == "tot.biomass") |>
   dplyr::mutate(EPU = "GOM")
 
-# combine all EPUSa nd convert to metric tons
+# combine all EPUS and convert to metric tons
 biomass <- dplyr::bind_rows(biomass_MAB, biomass_GB, biomass_GOM) |>
-  dplyr::group_by(YEAR, EPU) |>
+  dplyr::group_by(YEAR, SVSPP, EPU) |>
   dplyr::summarise(
     mt = sum(value * .001, na.rm = TRUE),
     .groups = "drop"
   )
 
-biomass |>
+# grab species and link to RPATH groups
+groupings <- ecodata::species_groupings |>
+  dplyr::select(SVSPP, RPATH) |>
+  dplyr::filter(!is.na(SVSPP)) |>
+  dplyr::filter(SVSPP != 0) |>
+  dplyr::distinct() |>
+  dplyr::mutate(
+    RPATH = dplyr::case_when(
+      grepl("Demersals", RPATH) ~ "Demersals",
+      TRUE ~ RPATH
+    )
+  ) |>
+  dplyr::distinct() |>
+  dplyr::filter(!(SVSPP == 413 & RPATH == "Macrobenthos"))
+
+biomass_save <- biomass |>
+  dplyr::left_join(groupings, by = "SVSPP") |>
+  dplyr::filter(SVSPP != 0) |>
+  dplyr::filter(!is.na(RPATH))
+
+saveRDS(
+  biomass_save,
+  here::here("EDAB/eof/swept_area_biomass_species_EOF.rds")
+)
+
+biomass_save |>
+  dplyr::group_by(YEAR, EPU) |>
+  dplyr::summarise(mt = sum(mt, na.rm = TRUE), .groups = "drop") |>
   ggplot2::ggplot() +
   ggplot2::geom_line(ggplot2::aes(x = YEAR, y = mt, color = EPU)) +
   ggplot2::labs(y = "Swept Area Biomass mt") +
   ggplot2::ggtitle("Total swept area biomass by EPU")
-
-saveRDS(
-  biomass,
-  here::here("EDAB/eof/swept_area_biomass_EOF.rds")
-)

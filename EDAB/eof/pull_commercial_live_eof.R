@@ -8,9 +8,10 @@
 #'
 
 channel <- dbutils::connect_to_database("server", "user")
+library(data.table)
+library(sf)
 
 # Define the stat areas for EPUs
-library(data.table)
 gom <- data.table(AREA = c(500, 510, 512:515), EPU = 'GOM')
 gb <- data.table(AREA = c(521:526, 551, 552, 561, 562), EPU = 'GB')
 mab <- data.table(
@@ -24,7 +25,7 @@ epuAreas[, NESPP3 := 1]
 epuAreas[, MeanProp := 1]
 
 # plot the EPU areas from the shapefile
-library(sf)
+
 NEFSCspatial::Statistical_Areas_2010_withNames |>
   dplyr::left_join(epuAreas, by = c("Id" = "AREA")) |>
   #dplyr::filter(Id %in% c(gom$AREA, gb$AREA, mab$AREA, ss$AREA)) |>
@@ -34,7 +35,7 @@ NEFSCspatial::Statistical_Areas_2010_withNames |>
   ggplot2::theme_minimal() +
   ggplot2::labs(title = "EPU Areas")
 
-# aggregate areas to epus
+# LIVE weight aggregate areas to epus
 land <- comlandr::get_comland_data(
   channel,
   filterByYear = NA,
@@ -55,9 +56,10 @@ land <- comlandr::get_comland_data(
   knStrata = c('HY', 'QY', 'MONTH', 'NEGEAR', 'TONCL2', 'AREA')
 )
 
-saveRDS(land, here::here("EDAB/eof/comlandEOFLive.rds"))
-land <- readRDS(here::here("EDAB/eof/comlandEOFLive.rds"))
-# aggregation gears to fleets and areas to epus
+saveRDS(land, here::here("EDAB/eof/data_pulls/comlandEOFLive.rds"))
+land <- readRDS(here::here("EDAB/eof/data_pulls/comlandEOFLive.rds"))
+
+# LIVE weight aggregation gears to fleets and areas to epus
 land <- comlandr::get_comland_data(
   channel,
   filterByYear = NA,
@@ -78,15 +80,25 @@ land <- comlandr::get_comland_data(
   knStrata = c('HY', 'QY', 'MONTH', 'NEGEAR', 'TONCL2', 'AREA')
 )
 
-saveRDS(land, here::here("EDAB/eof/comlandEOFLiveAggGear.rds"))
-land <- readRDS(here::here("EDAB/eof/comlandEOFLiveAggGear.rds"))
+saveRDS(land, here::here("EDAB/eof/data_pulls/comlandEOFLiveAggGear.rds"))
+land <- readRDS(here::here("EDAB/eof/data_pulls/comlandEOFLiveAggGear.rds"))
 
 # Remove menhaden NESPP3 221 from comland. We have catch separate
 land$comland <- land$comland |>
   dplyr::filter(NESPP3 != 221)
 
+# plot total by year
+land$comland |>
+  dplyr::filter(EPU %in% c("GOM", "GB", "MAB")) |>
+  dplyr::group_by(YEAR) |>
+  dplyr::summarise(mt = sum(SPPLIVMT, na.rm = TRUE), .groups = "drop") |>
+  ggplot2::ggplot() +
+  ggplot2::geom_line(ggplot2::aes(x = YEAR, y = mt)) +
+  ggplot2::labs(y = "Landings mt") +
+  ggplot2::ggtitle("Total landings by year")
 
-# pull discards
+
+# pull discards for LIVE weight
 discs <- comlandr::get_comdisc_data(
   channel,
   land,
@@ -96,8 +108,13 @@ discs <- comlandr::get_comdisc_data(
   areaDescription = "EPU",
   fleetDescription = "Fleet",
 )
-saveRDS(discs, here::here("EDAB/eof/discardscomlandEOFLiveAggGear.rds"))
-discs <- readRDS(here::here("EDAB/eof/discardscomlandEOFLiveAggGear.rds"))
+saveRDS(
+  discs,
+  here::here("EDAB/eof/data_pulls/discardscomlandEOFLiveAggGear.rds")
+)
+discs <- readRDS(here::here(
+  "EDAB/eof/data_pulls/discardscomlandEOFLiveAggGear.rds"
+))
 
 # only keep species that exist in the landings data
 landing_species <- unique(land$comland$NESPP3)
@@ -127,9 +144,16 @@ nonlanded_species_discards <- discs$comdisc |>
 
 #Add Menhaden directly from data provided by ASMFC
 menhaden <- data.table::as.data.table(readRDS(here::here(
-  "EDAB/eof",
+  "EDAB/eof/data_pulls/",
   "menhadenEOF_2025.rds"
 )))
+
+# plot menhaden data by EPU
+menhaden |>
+  ggplot2::ggplot() +
+  ggplot2::geom_line(ggplot2::aes(x = year, y = MABcatch, color = "MAB")) +
+  ggplot2::geom_line(ggplot2::aes(x = year, y = GOMcatch, color = "GOM")) +
+  ggplot2::geom_line(ggplot2::aes(x = year, y = NEUScatch, color = "Combined"))
 
 #Get in same format as comland
 #Mid-Atlantic
@@ -200,8 +224,22 @@ land$comland <- data.table::rbindlist(
   use.names = T
 )
 
+# plot total by year with menhaden added
+land$comland |>
+  dplyr::filter(EPU %in% c("GOM", "GB", "MAB")) |>
+  dplyr::group_by(YEAR) |>
+  dplyr::summarise(mt = sum(SPPLIVMT, na.rm = TRUE), .groups = "drop") |>
+  ggplot2::ggplot() +
+  ggplot2::geom_line(ggplot2::aes(x = YEAR, y = mt)) +
+  ggplot2::labs(y = "Landings mt") +
+  ggplot2::ggtitle("Total landings by year")
+
+
 # write true landings to file
-saveRDS(land, here::here("EDAB/eof/true_landings_EOF.rds"))
+saveRDS(land, here::here("EDAB/eof/data_output/true_landings_live_EOF.rds"))
 
 # write true discards to file
-saveRDS(landed_species_discards, here::here("EDAB/eof/true_discards_EOF.rds"))
+saveRDS(
+  landed_species_discards,
+  here::here("EDAB/eof/data_output/true_discards_live_EOF.rds")
+)

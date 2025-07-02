@@ -1,15 +1,26 @@
 #' Parses discards. Elasmobranchs, lobster, otherfish
 #'
+#' Meat weight
+#'
 #'  Dependent on  pull_commercial_eof.R
 #'
 #' Discards are only species from landings
 #'
 
 # read in the live landings data for the 3 epus of interest
-landings <- readRDS(here::here("EDAB/eof/true_landings_EOF.rds"))$comland |>
+landings <- readRDS(here::here(
+  "EDAB/eof/data_output/true_landings_meat_EOF.rds"
+))$comland |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB"))
 # read in discards and plot together
-discards <- readRDS(here::here("EDAB/eof/true_discards_EOF.rds")) |>
+discards <- readRDS(here::here(
+  "EDAB/eof/data_output/true_discards_meat_EOF.rds"
+)) |>
+  dplyr::filter(EPU %in% c("GOM", "GB", "MAB"))
+# live discard estimate (used for shellfish)
+discards_live <- readRDS(here::here(
+  "EDAB/eof/data_output/true_discards_live_EOF.rds"
+)) |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB"))
 
 ll <- landings |>
@@ -68,9 +79,15 @@ elasmobranchs <- c(
 )
 lobster <- "AmLobster"
 
+# codes from comlandr
+shellfish <- ecodata::species_groupings |>
+  dplyr::filter(NESPP3 %in% 743:800) |>
+  dplyr::distinct(RPATH) |>
+  dplyr::pull(RPATH)
+
 all_species <- discards |> dplyr::pull(RPATH) |> unique()
 
-otherfish <- setdiff(all_species, c(elasmobranchs, lobster))
+otherfish <- setdiff(all_species, c(elasmobranchs, lobster, shellfish))
 
 # elasmobranch discards
 elasmobranch_discards <- discards |>
@@ -78,17 +95,35 @@ elasmobranch_discards <- discards |>
 #other fish discards
 otherfish_discards <- discards |>
   dplyr::filter(RPATH %in% otherfish)
-# lobster dicards
+# lobster discards
 lobster_discards <- discards |>
   dplyr::filter(RPATH == lobster)
-
+# shellfish discards
+shellfish_discards <- discards |>
+  dplyr::filter(RPATH %in% shellfish)
+shellfish_discards_live <- discards_live |>
+  dplyr::filter(RPATH %in% shellfish)
+# save discards
 saveRDS(
   elasmobranch_discards,
-  here::here("EDAB/eof/elasmobranch_discards_EOF.rds")
+  here::here("EDAB/eof/data_output/elasmobranch_discards_EOF.rds")
 )
-saveRDS(otherfish_discards, here::here("EDAB/eof/otherfish_discards_EOF.rds"))
-saveRDS(lobster_discards, here::here("EDAB/eof/lobster_discards_EOF.rds"))
-
+saveRDS(
+  otherfish_discards,
+  here::here("EDAB/eof/data_output/otherfish_discards_EOF.rds")
+)
+saveRDS(
+  lobster_discards,
+  here::here("EDAB/eof/data_output/lobster_discards_EOF.rds")
+)
+saveRDS(
+  shellfish_discards,
+  here::here("EDAB/eof/data_output/shellfish_discards_meat_EOF.rds")
+)
+saveRDS(
+  shellfish_discards_live,
+  here::here("EDAB/eof/data_output/shellfish_discards_live_EOF.rds")
+)
 # look at which species comprise the most discards
 otherfish_discards |>
   dplyr::group_by(RPATH) |>
