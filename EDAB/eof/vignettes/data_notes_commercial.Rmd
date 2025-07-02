@@ -1,5 +1,5 @@
 ---
-title: "EOF data processing meat weight"
+title: "EOF data processing commerical data "
 output: html_document
 ---
 
@@ -7,7 +7,12 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(sf)
 library(data.table)
+filter_year <- 2024
 ```
+
+## Live vs meat weight
+
+In this context all species are recorded as live weight except shellfish species which can either be recorded as meat (without shell) or live (with shell) weight
 
 ## Spatial Footprints
 
@@ -34,17 +39,65 @@ NEFSCspatial::Statistical_Areas_2010_withNames |>
   ggplot2::theme_minimal() +
   ggplot2::labs(title = "EPUs defined by Statistical Areas")
 ```
+```{r EPUareasSurvey, echo = FALSE, eval = TRUE}
+EPU <- c('MAB', 'GB', 'GOM')
+MAB <- c(1010:1080, 1100:1120, 1600:1750, 3010:3450, 3470, 3500, 3510)
+GB <- c(1090, 1130:1210, 1230, 1250, 3460, 3480, 3490, 3520:3550)
+GOM <- c(1220, 1240, 1260:1290, 1360:1400, 3560:3830)
+NEUSStrata <- c(MAB, GB, GOM)
+
+# plot the EPU areas from the shapefile
+library(sf)
+ggplot2::ggplot() +
+  ggplot2::geom_sf(
+    data = NEFSCspatial::BTS_Strata,
+    color = "grey",
+    alpha = 0.5
+  ) +
+  ggplot2::geom_sf(
+    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% GOM),
+    color = "green"
+  ) +
+  ggplot2::geom_sf(
+    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% GB),
+    color = "red"
+  ) +
+  ggplot2::geom_sf(
+    data = NEFSCspatial::BTS_Strata %>% dplyr::filter(STRATA %in% MAB),
+    color = "blue"
+  ) +
+  ggplot2::coord_sf(xlim = c(-80, -65), ylim = c(35, 46)) +
+  ggplot2::theme_minimal() +
+  ggplot2::labs(
+    title = paste0("EPUs, (", paste0(EPU, collapse = ", "), ") defined by survey strata")
+  )
+
+
+```
+
 
 ## Landings and Discards
 
 Landings data are from the commercial fishery and include all species found in CAMS. Discards are estimated from observer data and are only species found in the landings data. Discards are classified as thrown overboard. It does NOT assume all fish are dead. Would need to apply mortality coefficients, especially for elasmobranchs to account for surviving discards. In leiu of this, discards are assumed to be all fish other than elasmobranchs and lobster. Data are pulled and processed using the [`comlandr`](https://noaa-edab.github.io/comlandr/) package
 
 ```{r allLandings, echo = FALSE, eval = TRUE}
-
-land <- readRDS(here::here("EDAB/eof/comlandEOFMeatAggGear.rds"))$comland |> 
-  dplyr::filter(NESPP3 != 221)
-
+# Remove menhaden NESPP3 221 from comland. We have catch separate
+land <- readRDS(here::here("EDAB/eof/data_pulls/comlandEOFLiveAggGear.rds"))$comland |> 
+  dplyr::filter(NESPP3 != 221,
+                YEAR <= filter_year)
 land |>
+  dplyr::filter(EPU %in% c("GOM", "GB", "MAB")) |>
+  dplyr::group_by(YEAR, EPU) |>
+  dplyr::summarise(mt = sum(SPPLIVMT, na.rm = TRUE), .groups = "drop") |>
+  ggplot2::ggplot() +
+  ggplot2::geom_line(ggplot2::aes(x = YEAR, y = mt, color = EPU)) +
+  ggplot2::labs(y = "Landings mt") +
+  ggplot2::ggtitle("Total landings (live) in mt by EPU")
+
+landmeat <- readRDS(here::here("EDAB/eof/data_pulls/comlandEOFMeatAggGear.rds"))$comland |>     dplyr::filter(NESPP3 != 221,
+                YEAR <= filter_year)
+
+landmeat |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB")) |>
   dplyr::group_by(YEAR, EPU) |>
   dplyr::summarise(mt = sum(SPPLIVMT, na.rm = TRUE), .groups = "drop") |>
@@ -57,7 +110,8 @@ land |>
 ```
 
 ```{r otherfishDiscards, echo = FALSE, eval = TRUE}
-ofd <- readRDS(here::here("EDAB/eof/otherfish_discards_meat_EOF.rds"))
+ofd <- readRDS(here::here("EDAB/eof/data_output/otherfish_discards_EOF.rds")) |> 
+  dplyr::filter(YEAR <= filter_year)
 ofd |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB")) |>
   dplyr::group_by(YEAR, EPU) |>
@@ -65,11 +119,11 @@ ofd |>
   ggplot2::ggplot() +
   ggplot2::geom_line(ggplot2::aes(x = YEAR, y = mt, color = EPU)) +
   ggplot2::labs(y = "Discards mt") +
-  ggplot2::ggtitle("Other fish discards (meat) by EPU")
+  ggplot2::ggtitle("other fish discards by EPU")
 
 ```
 
-Total landings and discards (all fish except elasmobranchs and lobster) across all 3 EPUs
+Total landings and discards (all fish except elasmobranchs and lobster, shellfish) across all 3 EPUs
 
 ```{r totalLandings, echo = FALSE, eval = TRUE}
 
@@ -106,7 +160,7 @@ rbind(ll, dd) |>
 ### By EPU
 
 ```{r byEPU, echo = FALSE, eval = TRUE}
-byEPU <- readRDS(here::here("EDAB/eof/total_landings_discards_meat_by_EPU.rds")) 
+byEPU <- readRDS(here::here("EDAB/eof/data_output/total_landings_discards_by_EPU.rds")) 
 
 byEPU |> 
     ggplot2::ggplot() +
@@ -122,15 +176,16 @@ byEPU |>
 ### Discards
 
 * Discard data are discards of species found in the landings data only.
-* Discard data are based on observer data. Discards are classified as thrown overboard. It does NOT assume all fish are dead. Would need to apply some mortality coefficient, especially for elasmobranchs. In lieu of this Discards are separated into 3 groups
+* Discard data are based on observer data. Discards are classified as thrown overboard. It does NOT assume all fish are dead. Would need to apply some mortality coefficient, especially for elasmobranchs. In lieu of this Discards are separated into 4 groups
 
   * Elasmobranchs
   * Other fish
+  * shellfish
   * Lobster
 
 ```{r allDiscards, echo = FALSE, eval = TRUE}
-discards <- readRDS(here::here("EDAB/eof/true_discards_meat_EOF.rds")) 
-discards |>
+discardsmeat <- readRDS(here::here("EDAB/eof/data_output/true_discards_meat_EOF.rds")) 
+discardsmeat |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB")) |>
   dplyr::group_by(NESPP3, RPATH) |>
   dplyr::summarise(mt = sum(DISMT, na.rm = TRUE), .groups = "drop") |>
@@ -139,7 +194,9 @@ discards |>
   ggplot2::ggplot() +
   ggplot2::geom_col(ggplot2::aes(x = factor(RPATH), y = mt)) +
   ggplot2::coord_flip() +
-  ggplot2::labs(x = "Top 20", y = "Discard (meat) mt")
+  ggplot2::labs(x = "Top 20", y = "Discard mt")
+
+
 ```
 
 Separate discards by groups
@@ -157,7 +214,7 @@ elasmobranchs <- c(
   "Barndoor",
   "WinterSkate"
 )
-discards |>
+discardsmeat |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB"))  |>
   dplyr::filter(RPATH %in% elasmobranchs) |> 
   dplyr::group_by(RPATH) |>
@@ -167,7 +224,8 @@ discards |>
   ggplot2::ggplot() +
   ggplot2::geom_col(ggplot2::aes(x = factor(RPATH), y = mt)) +
   ggplot2::coord_flip() +
-  ggplot2::labs(x = "Elasmobranchs", y = "Discard (meat) mt")
+  ggplot2::labs(x = "Elasmobranchs", y = "Discard mt")
+
 
 ```
 
@@ -186,11 +244,17 @@ elasmobranchs <- c(
 )
 lobster <- "AmLobster"
 
-all_species <- discards |> dplyr::pull(RPATH) |> unique()
+all_species <- discardsmeat |> dplyr::pull(RPATH) |> unique()
 
-otherfish <- setdiff(all_species, c(elasmobranchs, lobster))
+# codes from comlandr
+shellfish <- ecodata::species_groupings |>
+  dplyr::filter(NESPP3 %in% 743:800) |>
+  dplyr::distinct(RPATH) |>
+  dplyr::pull(RPATH)
 
-readRDS(here::here("EDAB/eof/true_discards_meat_EOF.rds")) |>
+otherfish <- setdiff(all_species, c(elasmobranchs, lobster, shellfish))
+
+readRDS(here::here("EDAB/eof/data_output/true_discards_meat_EOF.rds")) |>
   dplyr::filter(EPU %in% c("GOM", "GB", "MAB"))  |>
   dplyr::filter(RPATH %in% otherfish) |> 
   dplyr::group_by(RPATH) |>
@@ -200,6 +264,10 @@ readRDS(here::here("EDAB/eof/true_discards_meat_EOF.rds")) |>
   ggplot2::ggplot() +
   ggplot2::geom_col(ggplot2::aes(x = factor(RPATH), y = mt)) +
   ggplot2::coord_flip() +
-  ggplot2::labs(x = "Other fish", y = "Discard (meat) mt")
+  ggplot2::labs(x = "Other fish", y = "Discard mt")
+
+
+
+
 ```
 
