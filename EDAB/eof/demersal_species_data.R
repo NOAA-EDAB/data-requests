@@ -58,6 +58,13 @@ cd <- commercial |>
 demersal_data <- rbind(sd, cd) |>
   dplyr::filter(YEAR <= terminal_year)
 
+saveRDS(
+  demersal_data,
+  here::here(
+    "EDAB/eof/data_output/demersal_species_biomass_landings_EOF.rds"
+  )
+)
+
 demersal_data |>
   ggplot2::ggplot() +
   ggplot2::geom_line(ggplot2::aes(x = YEAR, y = mt, color = source)) +
