@@ -45,6 +45,7 @@ tidy_results <- td %>%
   ungroup() %>%
   dplyr::select(region, changepoint_years) %>%
   tidyr::unnest(changepoint_years) %>% 
-  tidyr::unnest(years)
- 
+  tidyr::unnest(years) %>%  
+  left_join(long_dat, by = join_by(region, years == year), relationship = "many-to-many")
+
 write.csv(tidy_results, file = here::here("EDAB/ecosystem_caps/commercial_changepoint.csv"), row.names = FALSE)
