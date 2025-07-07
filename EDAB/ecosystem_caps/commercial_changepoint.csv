@@ -1,15 +1,15 @@
-"region","best_model","years"
-"New England","trendar1cpt","1955"
-"New England","trendar1cpt","1960"
-"Mid-Atlantic","trendcpt","1962"
-"Mid-Atlantic","trendcpt","1969"
-"Mid-Atlantic","trendcpt","1998"
-"South Atlantic","trendcpt","1978"
-"South Atlantic","trendcpt","1984"
-"South Atlantic","trendcpt","2004"
-"Carribean","trendcpt","2015"
-"Gulf of Mexico/America","trendcpt","1987"
-"Pacific/California Current","trendar1cpt","1981"
-"Gulf of Alaska","trendcpt","2013"
-"Bering Sea-Aleutian Islands","meanar2cpt","2008"
-"Bering Sea-Aleutian Islands","meanar2cpt","2013"
+"region","best_model","years","value"
+"New England","trendar1cpt","1955",0.433375
+"New England","trendar1cpt","1960",0.386449
+"Mid-Atlantic","trendcpt","1962",0.664511
+"Mid-Atlantic","trendcpt","1969",0.223145
+"Mid-Atlantic","trendcpt","1998",0.415369
+"South Atlantic","trendcpt","1978",0.171179
+"South Atlantic","trendcpt","1984",0.185953
+"South Atlantic","trendcpt","2004",0.090916
+"Carribean","trendcpt","2015",0.001066
+"Gulf of Mexico/America","trendcpt","1987",1.148979
+"Pacific/California Current","trendar1cpt","1981",0.565994
+"Gulf of Alaska","trendcpt","2013",0.22
+"Bering Sea-Aleutian Islands","meanar2cpt","2008",1.55
+"Bering Sea-Aleutian Islands","meanar2cpt","2013",1.85
