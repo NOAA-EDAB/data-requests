@@ -24,4 +24,13 @@
 #'
 #'
 
-survdat::get_survdat_data(channel, getLengths = FALSE)
+survey <- survdat::get_survdat_data(channel, getLengths = FALSE)
+saveRDS(survey,here::here("survdatSpecies.rds"))
+
+species <- survdat::get_species(channel)
+sp <- species$data |>
+  dplyr::select(SCINAME, COMNAME, SVSPP) |>
+  dplyr::distinct() |>
+  dplyr::filter(!is.na(SVSPP))
+
+saveRDS(sp,here::here("survdatSpecies.rds"))
