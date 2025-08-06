@@ -56,3 +56,10 @@ saveRDS(
   here::here("NYBight-XYang/NYBspring_mean_lengths.rds")
 )
 saveRDS(NYBfall_mean, here::here("NYBight-XYang/NYBfall_mean_lengths.rds"))
+
+# strata areas
+area <- sf::st_read(
+  dsn = system.file("extdata", "strata.shp", package = "survdat")
+)
+areas <- survdat::get_area(areaPolygon = area, areaDescription = "STRATA")
+saveRDS(areas, here::here("NYBight-XYang/NYBstrata_areas.rds"))
