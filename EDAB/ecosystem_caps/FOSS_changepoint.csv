@@ -1,0 +1,36 @@
+"region","best_model","years","value"
+"New England","trendcpt",1958,0.452575
+"New England","trendcpt",1974,0.237001
+"New England","trendcpt",1981,0.381935
+"New England","trendcpt",1987,0.287161
+"New England","trendcpt",2011,0.30851
+"Mid-Atlantic","trendar1cpt",1976,0.388581
+"Mid-Atlantic","trendar1cpt",1982,0.497454
+"Mid-Atlantic","trendar1cpt",1995,0.547886
+"South Atlantic","meancpt",1978,0.171179
+"South Atlantic","meancpt",1985,0.200115
+"South Atlantic","meancpt",1997,0.178382
+"South Atlantic","meancpt",2004,0.147732
+"South Atlantic","meancpt",2017,0.103014
+"Caribbean","trendcpt",2015,0.001066
+"Gulf of Mexico/America","meancpt",1958,0.366886
+"Gulf of Mexico/America","meancpt",1968,0.584605
+"Gulf of Mexico/America","meancpt",1981,0.834181
+"Gulf of Mexico/America","meancpt",1987,1.220862
+"Gulf of Mexico/America","meancpt",2003,0.801775
+"California Current","trendcpt",1963,0.437592
+"California Current","trendcpt",1974,0.574843
+"California Current","trendcpt",1982,0.558119
+"Gulf of Alaska","trendar2cpt",1972,0.0232858459177375
+"Gulf of Alaska","trendar2cpt",1979,0.0450570654554125
+"Gulf of Alaska","trendar2cpt",1985,0.0610289566350693
+"Gulf of Alaska","trendar2cpt",2008,0.231679602949686
+"Bering Sea-Aleutian Islands","trendar2cpt",1972,0.183448154082263
+"Bering Sea-Aleutian Islands","trendar2cpt",1979,0.354963934544587
+"Bering Sea-Aleutian Islands","trendar2cpt",1985,0.480792043364931
+"Bering Sea-Aleutian Islands","trendar2cpt",2008,1.82519439705031
+"Pacific Longline","trend",NA,NA
+"Hawaii (EEZ)","meancpt",2009,0.015879514401
+"American Samoa (EEZ)","meancpt",2012,0.005099
+"American Samoa (EEZ)","meancpt",2018,0.002754
+"Guam and CNMI (EEZ)","trend",NA,NA
